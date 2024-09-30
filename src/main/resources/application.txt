@@ -1,4 +1,4 @@
-# 先将此配置重命名为application.yml，然后修改数据库连接信息、Redis配置信息即可
+# 先将此配置重命名为application.yml，然后修改数据库连接信息、Redis配置信息、邮箱配置信息即可
 
 spring.application.name: data-archiving
 
@@ -12,11 +12,25 @@ spring:
         password: 密码
         driver-class-name: com.mysql.cj.jdbc.Driver
 
-
-  jpa: # JPA配置
-    hibernate:
-    ddl-auto: update
-    show-sql: true
+  mail:
+    host: smtp.163.com # 邮箱服务器地址
+    username: XX@163.com # 邮箱账号
+    password: 授权码 # 邮箱授权码（而不是登录密码）
+    port: 465
+    protocol: smtp
+    default-encoding: utf-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            enable: true
+          socketFactory:
+            port: 465
+            class: javax.net.ssl.SSLSocketFactory
 
 # 日志配置
 logging:
