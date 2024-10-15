@@ -88,6 +88,13 @@
             <artifactId>redisson-spring-boot-starter</artifactId>
             <version>3.24.3</version>
         </dependency>
+    <!--        mybatis-plus依赖 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.7</version>
+        </dependency>
+
     </dependencies>
 
     <build>

@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * @Author TheBackEndRoachCYRong
  * @Description: 系统参数配置
  */
 
@@ -24,5 +23,11 @@ public class SystemConstantConfig {
 
     @Value("${data-archiving.lastProcessedId}")
     private  long LAST_PROCESSED_ID;//切表的起始位置
+
+    @Value("${data-archiving.archiveOldSchemaName}")
+    private  String ARCHIVE_OLD_SCHEMA_NAME;//归档旧表的schema名称
+
+    @Value("${data-archiving.archiveNewSchemaName}")
+    private  String ARCHIVE_NEW_SCHEMA_NAME;//归档新表的schema名称
 
 }

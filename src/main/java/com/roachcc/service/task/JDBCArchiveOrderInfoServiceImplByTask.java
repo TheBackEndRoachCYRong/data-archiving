@@ -1,9 +1,10 @@
-package com.roachcc.service.impl;
+package com.roachcc.service.task;
 
 import com.roachcc.config.SystemConstantConfig;
-import com.roachcc.entity.OrderInfo;
-import com.roachcc.service.TableInfoArchiveService;
-import com.roachcc.service.tools.MailServiceTool;
+import com.roachcc.entity.demo.OrderInfo;
+import com.roachcc.service.ShareTaskService;
+import com.roachcc.service.ShareDataArchiveService;
+import com.roachcc.service.impl.SendMessageServiceImplBy163Email;
 import com.roachcc.utils.RowMapperUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +18,7 @@ import org.springframework.mail.MailException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,14 +29,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * @author RoachCC
- * @Description 订单表-归档服务实现类
+ * 示例
+ * 定时归档订单数据，每月5号凌晨2点执行
  */
-
 @Service
 @Slf4j
-public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
-
+public class JDBCArchiveOrderInfoServiceImplByTask implements ShareDataArchiveService, ShareTaskService {
 
     @Autowired
     private SystemConstantConfig systemConstantConfig;
@@ -48,7 +48,38 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
     private RedissonClient redissonClient;
 
     @Autowired
-    private MailServiceTool mailServiceTool;
+    private SendMessageServiceImplBy163Email sendMessageServiceImplBy163Email;
+
+    @Override
+//    @Scheduled(cron = "0 05 12 * * ?")
+    @Scheduled(cron = "0 0 2 5 * ?") // 每月5号凌晨2点执行
+    public void executeMonthlyArchiveTask() {
+        try {
+            // 仅仅保留最近两月的数据，获取当前月份的前第2个月
+            LocalDateTime archiveMonth = LocalDateTime.now().minusMonths(2).withDayOfMonth(1).toLocalDate().atStartOfDay();
+            
+            log.info("开始执行定时归档任务，归档月份为：{}", archiveMonth);
+
+
+            archiveData(archiveMonth);
+
+            log.info("定时归档任务正在进行归档，归档月份为：{}", archiveMonth);
+
+            //检验是否归档成功
+           Thread.sleep(300000); // 等待300秒（5min），等待数据归档完成
+            String archiveTableName = getArchiveTableName(archiveMonth);
+            String checkSql = "SELECT COUNT(*) FROM " + archiveTableName;
+            int count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            if (0 == count) {
+                log.error("归档失败，归档表：{}", archiveTableName);
+                throw new RuntimeException("归档失败，归档表："+archiveTableName);
+            }
+
+            log.info("定时归档任务执行完毕，归档月份为：{}",archiveMonth);
+        } catch (Exception e) {
+            log.error("定时归档任务执行失败", e);
+        }
+    }
 
     @Override
     @Retryable(
@@ -58,9 +89,9 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
     public void archiveData(LocalDateTime dataMonth) {
         RLock lock = redissonClient.getLock(LOCK_KEY);
         try {
-            if (lock.tryLock(10, 3600, TimeUnit.SECONDS)) { // 尝试获取锁，最多等待10秒，最长保持1小时
+            if (lock.tryLock(5, 600, TimeUnit.SECONDS)) {
                 try {
-                    doArchiveData(dataMonth); // 执行归档操作
+                    doArchiveData(dataMonth);
                 } finally {
                     if (lock.isHeldByCurrentThread()) {
                         lock.unlock();
@@ -83,11 +114,13 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
     @Transactional
     public void doArchiveData(LocalDateTime dataMonth) {
         log.info("开始归档订单数据，归档的月份：{}", dataMonth);
-        // 初始化参数
-        String archiveTableName = getArchiveTableName(dataMonth);// 归档表名
-        createArchiveTable(archiveTableName); // 创建新表
-        long lastProcessedId = systemConstantConfig.getLAST_PROCESSED_ID();//获取切表位置
-        boolean hasMore = true;//是否还有数据需要归档
+        String archiveTableName = getArchiveTableName(dataMonth);
+        createArchiveTable(archiveTableName);
+        long lastProcessedId = systemConstantConfig.getLAST_PROCESSED_ID();
+        boolean hasMore = true;
+
+        LocalDateTime monthStart = dataMonth.withDayOfMonth(1).toLocalDate().atStartOfDay();
+        LocalDateTime monthEnd = monthStart.plusMonths(1).minusSeconds(1);
 
         while (hasMore) {
             log.info("查询 {} 条数据：" +
@@ -97,18 +130,20 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
                     systemConstantConfig.getMAX_BATCH_SIZE(),
                     lastProcessedId,
                     archiveTableName,
-                    "SELECT * FROM order_info WHERE id > ? ORDER BY id ASC LIMIT ?"
+                    "SELECT * FROM order_info WHERE id > ? AND create_time >= ? AND create_time <= ? ORDER BY id ASC LIMIT ?"
             );
-            String querySQL = "SELECT * FROM order_info WHERE id > ? ORDER BY id ASC LIMIT ?";
+
+            String querySQL = "SELECT * FROM order_info WHERE id > ? AND create_time >= ? AND create_time <= ? ORDER BY id ASC LIMIT ?";
             RowMapper<OrderInfo> rowMapper = RowMapperUtil.getOrderInfoRowMapper();
-            List<OrderInfo> orderInfos = jdbcTemplate.query(querySQL, rowMapper, lastProcessedId, systemConstantConfig.getMAX_BATCH_SIZE());
+            List<OrderInfo> orderInfos = jdbcTemplate.query(querySQL, rowMapper, lastProcessedId, monthStart, monthEnd, systemConstantConfig.getMAX_BATCH_SIZE());
+
 
             if (orderInfos.isEmpty()) {
                 hasMore = false;
             } else {
                 List<Long> orderInfoIds = orderInfos.stream().map(OrderInfo::getId).collect(Collectors.toList());
 
-                // 归档数据到新表
+
                 String sql = "INSERT INTO " + archiveTableName +
                         " SELECT * FROM order_info WHERE id IN (" +
                         StringUtils.repeat("?", ",", orderInfoIds.size()) + ")";
@@ -120,7 +155,7 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
                         sql);
                 jdbcTemplate.update(sql, orderInfoIds.toArray());
 
-                // 删除旧表数据
+
                 String deleteSql = "DELETE FROM order_info WHERE id IN (" +
                         StringUtils.repeat("?", ",", orderInfoIds.size()) + ")";
                 log.info("删除旧表数据：{} 条数据，" +
@@ -143,7 +178,7 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
 
     @Override
     public void createArchiveTable(String newTableName) {
-        //旧表
+
         String oldTableName = systemConstantConfig.getOLD_TABLE_NAME();
 
         //新表名为newTableName，结构完全复制旧表oldTableName。效果类似于 XXX_202406()
@@ -163,15 +198,10 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
                     sql,
                     e.getMessage()
             );
-            throw e;// 抛出异常，让Spring的重试机制处理
+            throw e;
         }
     }
 
-    /**
-     * 获取归档表名
-     * @param dataMonth 需要归档的月份
-     * @return
-     */
     @Override
     public String getArchiveTableName(LocalDateTime dataMonth) {
         return systemConstantConfig.getARCHIVE_TABLE_PREFIX() + dataMonth.format(DateTimeFormatter.ofPattern("yyyyMM"));
@@ -186,10 +216,32 @@ public class OrderInfoArchiveServiceImpl implements TableInfoArchiveService {
         String subject = "订单归档失败告警";
         String body = "订单归档失败，错误信息：" + e.getMessage();
         try {
-            mailServiceTool.sendErrorEmail("boldsteps@163.com", subject, body);
+            sendMessageServiceImplBy163Email.sendMessage("boldsteps@163.com", subject, body);
             log.error("重试3次失败，已发送告警邮件");
         } catch (MailException mailException) {
             log.error("发送告警邮件失败", mailException);
         }
+    }
+
+    @Override
+    public Long getStartId(String dataMonth) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-M-d H:mm:ss");
+        LocalDateTime inputDate = LocalDateTime.parse(dataMonth, formatter);
+
+
+        LocalDateTime monthStart = inputDate.withDayOfMonth(1).toLocalDate().atStartOfDay();
+        LocalDateTime monthEnd = monthStart.plusMonths(1).minusSeconds(1);
+
+
+        String querySQL = "SELECT MIN(id) FROM order_info WHERE create_time >= ? AND create_time <= ?";
+        Long startId = jdbcTemplate.queryForObject(querySQL, Long.class, monthStart, monthEnd);
+
+        if (0L == startId || null == startId) {
+            log.info("该月份没有数据，返回起始ID为 null");
+            return 0L;
+        }
+
+        log.info("归档月份：{}，查询到的起始ID为：{}", monthStart, startId);
+        return startId;
     }
 }

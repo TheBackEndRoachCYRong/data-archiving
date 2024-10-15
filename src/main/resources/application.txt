@@ -45,9 +45,10 @@ redisson:
     password: 密码  # Redis服务器密码，默认为空
     database: 0  # Redis数据库索引，默认为0
 
-# 自定义配置
+# 自定义配置-切表配置
 data-archiving:
-    lastProcessedId: 200001 #  切表的起始位置，第一次切表先去数据库里面起始位置的id值
+    lastProcessedId: 400000 #  切表的起始位置，第一次切表先去数据库里面起始位置的id值
     maxBatchSize: 500 # 每次切500条数据
     archiveTablePrefix: order_info # 切分后的表名称前缀
     oldTableName: order_info # 被切分的原始表名称
+    archiveTableName: order_info_archive # 切分后的表名称
