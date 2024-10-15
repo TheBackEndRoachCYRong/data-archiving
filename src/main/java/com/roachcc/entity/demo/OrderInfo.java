@@ -1,13 +1,15 @@
-package com.roachcc.entity;
+package com.roachcc.entity.demo;
 
 /**
- * @Author TheBackEndRoachCYRong
+ * 示例
  * @Description: 订单表
  */
 
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,6 +17,7 @@ import lombok.Setter;
 @Data
 @Getter
 @Setter
+@TableName("order_info")
 public class OrderInfo {
 
     private Long id;

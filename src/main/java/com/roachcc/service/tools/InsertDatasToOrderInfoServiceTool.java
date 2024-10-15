@@ -1,6 +1,6 @@
 package com.roachcc.service.tools;
 
-import com.roachcc.entity.OrderInfo;
+import com.roachcc.entity.demo.OrderInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -14,7 +14,6 @@ import java.util.Random;
 
 /**
  * 插入实验数据，这只是辅助工具，不重要。
- * 本次设计的重点是对“数据库大表”进行归档/月切/迁移
  */
 @Service
 @Slf4j

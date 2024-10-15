@@ -3,10 +3,9 @@ package com.roachcc.service;
 import java.time.LocalDateTime;
 
 /**
- * @Author TheBackEndRoachCYRong
  * @Description: XX表归档公共接口
  */
-public interface TableInfoArchiveService {
+public interface ShareDataArchiveService {
 
     /**
      * 归档指定月份的数据
@@ -36,4 +35,9 @@ public interface TableInfoArchiveService {
      * @return 归档表名
      */
     String getArchiveTableName(LocalDateTime dataMonth);
+
+    /**
+     * 查询目标表中指定月份的数据的起始id
+     */
+    Long getStartId(String dataMonth);
 }

@@ -5,7 +5,6 @@ import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * @Author TheBackEndRoachCYRong
  * @Description: 定时任务、重试机制配置
  */
 @Configuration
