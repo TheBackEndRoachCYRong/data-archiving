@@ -15,11 +15,13 @@
 > ```
 > # 自定义配置-切表配置（yml文件）
 > data-archiving:
->     lastProcessedId: 200000 #  【可选】切表的起始位置，第一次切表先去数据库里面起始位置的id值
->     maxBatchSize: 500 # 【可选】每次切500条数据
+>     lastProcessedId: 200000 #  【必填】切表的起始位置，第一次切表先去数据库里面起始位置的id值
+>     maxBatchSize: 500 # 【必填】每次切500条数据
 >     archiveTablePrefix: order_info # 【必填】切分后的表名称前缀
 >     oldTableName: order_info # 【必填】被切分的原始表名称
-> ```
+>     archiveOldSchemaName: inventory_system # 【可选】切分前的表所在的数据库名称，待完善
+>     archiveNewSchemaName: inventory_system # 【可选】切后的表所在的数据库名称，待完善
+```
 
 ### 接口类型：POST
 
@@ -49,7 +51,7 @@
 
 ```json
 {
-  错误：服务器内部错误，归档失败！
+    错误：服务器内部错误，归档失败！
 }
 ```
 
@@ -83,7 +85,7 @@
 
 ```json
 {
-  错误：服务器内部错误，归档失败！
+    错误：服务器内部错误，归档失败！
 }
 ```
 

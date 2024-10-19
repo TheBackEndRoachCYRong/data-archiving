@@ -1,4 +1,4 @@
-# 先将此配置重命名为application.yml，然后修改数据库连接信息、Redis配置信息、邮箱配置信息即可
+# 先将此配置重命名为application.yml，然后修改数据库连接信息、Redis配置信息、邮箱配置信息,最后根据实际情况修改【切表配置】。
 
 spring.application.name: data-archiving
 
@@ -14,8 +14,8 @@ spring:
 
   mail:
     host: smtp.163.com # 邮箱服务器地址
-    username: XX@163.com # 邮箱账号
-    password: 授权码 # 邮箱授权码（而不是登录密码）
+    username: XX@163.com # 邮箱账号，改为自己的邮箱账号
+    password: 授权码 # 邮箱授权码（而不是登录密码），改为自己的授权码
     port: 465
     protocol: smtp
     default-encoding: utf-8
@@ -41,14 +41,13 @@ logging:
 
 # Redisson 配置
 redisson:
-    address: redis://localhost:6379  # Redis服务器地址
-    password: 密码  # Redis服务器密码，默认为空
-    database: 0  # Redis数据库索引，默认为0
+    address: redis://localhost:6379  # Redis服务器地址,Redisson默认使用locahost:6379的地址
 
 # 自定义配置-切表配置
 data-archiving:
-    lastProcessedId: 400000 #  切表的起始位置，第一次切表先去数据库里面起始位置的id值
-    maxBatchSize: 500 # 每次切500条数据
-    archiveTablePrefix: order_info # 切分后的表名称前缀
-    oldTableName: order_info # 被切分的原始表名称
-    archiveTableName: order_info_archive # 切分后的表名称
+  lastProcessedId: 300001 #  切表的起始位置，第一次切表先去数据库里面查起始位置的id值
+  maxBatchSize: 500 # 每次切500条数据,可以根据自己机器的性能调整
+  archiveTablePrefix: order_info # 切分后的表名称前缀
+  oldTableName: order_info # 被切分的原始表名称
+  archiveOldSchemaName: inventory_system # 切分前的表所在的数据库名称，待完善
+  archiveNewSchemaName: inventory_system # 切后的表所在的数据库名称，待完善
